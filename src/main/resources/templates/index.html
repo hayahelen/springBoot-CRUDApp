@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CRUD Dashboard</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      nav {
+        margin-bottom: 20px;
+      }
+      nav button {
+        padding: 5px 15px;
+        margin-right: 10px;
+        cursor: pointer;
+      }
+      section {
+        display: none;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background-color: #f4f4f4;
+      }
+      button {
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      form {
+        margin-top: 20px;
+      }
+      input,
+      select {
+        padding: 5px;
+        margin: 5px;
+      }
+      .product-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+      .transactions-table {
+        margin-top: 10px;
+        border: 1px solid #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CRUD Dashboard</h1>
+
+    <nav>
+      <button onclick="showSection('productsSection')">Products</button>
+      <button onclick="showSection('clientsSection')">Clients</button>
+      <button onclick="showSection('salesSection')">Sales</button>
+    </nav>
+
+    <section id="productsSection">
+      <h2>Product Management</h2>
+      <form id="productForm">
+        <h3 id="productFormTitle">Add Product</h3>
+        <input type="hidden" id="productId" />
+        <label>Name: <input type="text" id="name" required /></label>
+        <label>Description: <input type="text" id="description" /></label>
+        <label>Category: <input type="text" id="category" /></label>
+        <label
+          >Price: <input type="number" step="0.01" id="price" required
+        /></label>
+        <br />
+        <button type="submit">Save Product</button>
+        <button type="button" onclick="resetProductForm()">Cancel</button>
+      </form>
+      <table id="productsTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Created At</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="clientsSection">
+      <h2>Client Management</h2>
+      <form id="clientForm">
+        <h3 id="clientFormTitle">Add Client</h3>
+        <input type="hidden" id="clientId" />
+        <label>First Name: <input type="text" id="firstName" required /></label>
+        <label>Last Name: <input type="text" id="lastName" required /></label>
+        <label>Mobile: <input type="text" id="mobile" /></label>
+        <br />
+        <button type="submit">Save Client</button>
+        <button type="button" onclick="resetClientForm()">Cancel</button>
+      </form>
+      <table id="clientsTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Mobile</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="salesSection">
+      <h2>Sales Management</h2>
+      <button onclick="showAllTransactions()">Show All Transactions</button>
+      <form id="saleForm">
+        <h3 id="saleFormTitle">Create Sale</h3>
+        <input type="hidden" id="saleId" />
+        <label>Seller: <input type="text" id="seller" required /></label>
+        <label>Client ID: <input type="number" id="clientIdSale" /></label>
+        <div id="productsContainer"><h3>Products</h3></div>
+        <button type="button" onclick="addProductRow()">Add Product</button>
+        <button type="submit">Save Sale</button>
+        <button type="button" onclick="resetSaleForm()">Cancel</button>
+      </form>
+      <table id="salesTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Seller</th>
+            <th>Client</th>
+            <th>Total</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div id="transactionsContainer"></div>
+    </section>
+
+    <script>
+      function showSection(sectionId) {
+        document
+          .querySelectorAll("section")
+          .forEach((sec) => (sec.style.display = "none"));
+        document.getElementById(sectionId).style.display = "block";
+      }
+
+      const productTableBody = document.querySelector("#productsTable tbody");
+      const productForm = document.getElementById("productForm");
+      const productFormTitle = document.getElementById("productFormTitle");
+
+      async function fetchProducts() {
+        productTableBody.innerHTML = "";
+        const res = await fetch("/products");
+        const products = await res.json();
+        products.forEach((product) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td>${product.id}</td>
+                    <td>${product.name}</td>
+                    <td>${product.description || ""}</td>
+                    <td>${product.category || ""}</td>
+                    <td>${product.price}</td>
+                    <td>${new Date(product.createdAt).toLocaleString()}</td>
+                    <td>
+                        <button onclick="editProduct(${
+                          product.id
+                        })">Edit</button>
+                        <button onclick="deleteProduct(${
+                          product.id
+                        })">Delete</button>
+                    </td>`;
+          productTableBody.appendChild(row);
+        });
+      }
+
+      function resetProductForm() {
+        productForm.reset();
+        document.getElementById("productId").value = "";
+        productFormTitle.textContent = "Add Product";
+      }
+
+      productForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("productId").value;
+        const payload = {
+          name: document.getElementById("name").value,
+          description: document.getElementById("description").value,
+          category: document.getElementById("category").value,
+          price: parseFloat(document.getElementById("price").value),
+        };
+        if (id) {
+          await fetch(`/products/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          await fetch("/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+        resetProductForm();
+        fetchProducts();
+      });
+
+      async function editProduct(id) {
+        const res = await fetch(`/products/id/${id}`);
+        const product = await res.json();
+        document.getElementById("productId").value = product.id;
+        document.getElementById("name").value = product.name;
+        document.getElementById("description").value =
+          product.description || "";
+        document.getElementById("category").value = product.category || "";
+        document.getElementById("price").value = product.price;
+        productFormTitle.textContent = "Edit Product";
+      }
+
+      async function deleteProduct(id) {
+        if (!confirm("Delete this product?")) return;
+        await fetch(`/products/${id}`, { method: "DELETE" });
+        fetchProducts();
+      }
+
+      const clientTableBody = document.querySelector("#clientsTable tbody");
+      const clientForm = document.getElementById("clientForm");
+      const clientFormTitle = document.getElementById("clientFormTitle");
+
+      async function fetchClients() {
+        clientTableBody.innerHTML = "";
+        const res = await fetch("/clients");
+        const clients = await res.json();
+        clients.forEach((client) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td>${client.id}</td>
+                    <td>${client.firstName}</td>
+                    <td>${client.lastName}</td>
+                    <td>${client.mobile || ""}</td>
+                    <td>
+                        <button onclick="editClient(${client.id})">Edit</button>
+                        <button onclick="deleteClient(${
+                          client.id
+                        })">Delete</button>
+                    </td>`;
+          clientTableBody.appendChild(row);
+        });
+      }
+
+      function resetClientForm() {
+        clientForm.reset();
+        document.getElementById("clientId").value = "";
+        clientFormTitle.textContent = "Add Client";
+      }
+
+      clientForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("clientId").value;
+        const payload = {
+          firstName: document.getElementById("firstName").value,
+          lastName: document.getElementById("lastName").value,
+          mobile: document.getElementById("mobile").value,
+        };
+        if (id) {
+          await fetch(`/clients/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          await fetch("/clients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+        resetClientForm();
+        fetchClients();
+      });
+
+      async function editClient(id) {
+        const res = await fetch(`/clients/${id}`);
+        const client = await res.json();
+        document.getElementById("clientId").value = client.id;
+        document.getElementById("firstName").value = client.firstName;
+        document.getElementById("lastName").value = client.lastName;
+        document.getElementById("mobile").value = client.mobile || "";
+        clientFormTitle.textContent = "Edit Client";
+      }
+
+      async function deleteClient(id) {
+        if (!confirm("Delete this client?")) return;
+        await fetch(`/clients/${id}`, { method: "DELETE" });
+        fetchClients();
+      }
+
+      const saleTableBody = document.querySelector("#salesTable tbody");
+      const saleForm = document.getElementById("saleForm");
+      const productsContainer = document.getElementById("productsContainer");
+      const transactionsContainer = document.getElementById(
+        "transactionsContainer"
+      );
+      const saleFormTitle = document.getElementById("saleFormTitle");
+
+      async function fetchSales() {
+        saleTableBody.innerHTML = "";
+        const res = await fetch("/sales");
+        const sales = await res.json();
+        sales.forEach((sale) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td>${sale.id}</td>
+                    <td>${sale.seller || ""}</td>
+                    <td>${sale.client ? sale.client.id : ""}</td>
+                    <td>${sale.total}</td>
+                    <td>
+                        <button onclick="editSale(${sale.id})">Edit</button>
+                        <button onclick="deleteSale(${sale.id})">Delete</button>
+                        <button onclick="showTransactions(${
+                          sale.id
+                        })">Show Transactions</button>
+                    </td>`;
+          saleTableBody.appendChild(row);
+        });
+      }
+
+      function addProductRow(product = {}) {
+        const div = document.createElement("div");
+        div.className = "product-row";
+        div.innerHTML = `
+                <input type="number" placeholder="Product ID" value="${
+                  product.productId || ""
+                }" required />
+                <input type="number" placeholder="Quantity" value="${
+                  product.quantity || ""
+                }" required />
+                <input type="number" step="0.01" placeholder="Price" value="${
+                  product.price || ""
+                }" />
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>`;
+        productsContainer.appendChild(div);
+      }
+
+      function resetSaleForm() {
+        saleForm.reset();
+        productsContainer.innerHTML = "<h3>Products</h3>";
+        document.getElementById("saleId").value = "";
+        saleFormTitle.textContent = "Create Sale";
+      }
+
+      saleForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const saleId = document.getElementById("saleId").value;
+        const seller = document.getElementById("seller").value;
+        const clientId = document.getElementById("clientIdSale").value || null;
+        const products = Array.from(
+          productsContainer.querySelectorAll(".product-row")
+        ).map((row) => {
+          const inputs = row.querySelectorAll("input");
+          return {
+            productId: Number(inputs[0].value),
+            quantity: Number(inputs[1].value),
+            price: inputs[2].value ? Number(inputs[2].value) : null,
+          };
+        });
+
+        const payload = {
+          sale: { seller, client: clientId ? { id: clientId } : null },
+          products,
+        };
+
+        try {
+          if (saleId) {
+            const res = await fetch(`/sales/${saleId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok)
+              throw new Error(
+                "Cannot save sale! Either product ID or client ID or both do not exist."
+              );
+          } else {
+            const res = await fetch("/sales", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error("Cannot save sale!");
+          }
+
+          resetSaleForm();
+          fetchSales();
+        } catch (error) {
+          alert("Cannot save! " + error.message);
+        }
+      });
+
+      async function deleteSale(id) {
+        if (!confirm("Delete this sale?")) return;
+        await fetch(`/sales/${id}`, { method: "DELETE" });
+        fetchSales();
+      }
+
+      async function editSale(id) {
+        const res = await fetch(`/sales/${id}`);
+        const sale = await res.json();
+        saleFormTitle.textContent = "Edit Sale";
+        document.getElementById("saleId").value = sale.id;
+        document.getElementById("seller").value = sale.seller || "";
+        document.getElementById("clientIdSale").value = sale.client
+          ? sale.client.id
+          : "";
+        productsContainer.innerHTML = "<h3>Products</h3>";
+        sale.transactions.forEach((tr) => addProductRow(tr));
+      }
+
+      async function showTransactions(saleId) {
+        const res = await fetch(`/sales/${saleId}`);
+        const sale = await res.json();
+        let html = `<h3>Transactions for Sale ID ${saleId}</h3>`;
+        html += `<table class="transactions-table">
+                <tr><th>Transaction ID</th><th>Product ID</th><th>Quantity</th><th>Price</th><th>Total</th></tr>`;
+        sale.transactions.forEach((tr) => {
+          html += `<tr><td>${tr.id}</td><td>${tr.productId}</td><td>${
+            tr.quantity
+          }</td><td>${tr.price}</td><td>${(tr.quantity * tr.price).toFixed(
+            2
+          )}</td></tr>`;
+        });
+        html += `</table>`;
+        transactionsContainer.innerHTML = html;
+      }
+
+      async function showAllTransactions() {
+        const res = await fetch("/sales");
+        const sales = await res.json();
+        let html = `<h3>All Transactions</h3>`;
+        html += `<table class="transactions-table">
+                <tr><th>Sale ID</th><th>Transaction ID</th><th>Product ID</th><th>Quantity</th><th>Price</th><th>Total</th></tr>`;
+        sales.forEach((sale) => {
+          sale.transactions.forEach((tr) => {
+            html += `<tr><td>${sale.id}</td><td>${tr.id}</td><td>${
+              tr.productId
+            }</td><td>${tr.quantity}</td><td>${tr.price}</td><td>${(
+              tr.quantity * tr.price
+            ).toFixed(2)}</td></tr>`;
+          });
+        });
+        html += `</table>`;
+        transactionsContainer.innerHTML = html;
+      }
+
+      showSection("productsSection");
+      fetchProducts();
+      fetchClients();
+      fetchSales();
+    </script>
+  </body>
+</html>
